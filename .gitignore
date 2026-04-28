@@ -43,3 +43,22 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+# Flutter
+build/
+.dart_tool/
+.packages
+.pub-cache/
+
+# Android
+android/.gradle/
+android/app/build/
+
+# Node (if backend inside)
+node_modules/
+
+# Python (if any)
+venv/
+ai_env/
+
+# OS
+.DS_Store
