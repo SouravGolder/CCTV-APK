@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:aws_common/aws_common.dart';
 import 'package:aws_signature_v4/aws_signature_v4.dart';
 import 'package:http/http.dart' as http;
 import 'r2_config.dart';
@@ -13,12 +14,13 @@ class R2Service {
     ),
   );
 
-  final _scope = AWSCredentialScope(region: 'auto', service: AWSService.s3);
+  // Use raw constructor with service string to avoid referencing AWSService symbol
+  final _scope = AWSCredentialScope.raw(region: 'auto', service: 's3');
 
   /// Uploads [file] to R2 at the given [objectKey] (e.g. "camera01/2026/.../video.mp4").
   /// Returns true on success.
   Future<bool> uploadFile(File file, String objectKey, {String contentType = 'video/mp4'}) async {
-    // Build the object URL (use path style)
+    // Build the object URL (path-style)
     final uri = Uri.parse('${r2Endpoint}/${r2BucketName}/$objectKey');
 
     final bytes = await file.readAsBytes();

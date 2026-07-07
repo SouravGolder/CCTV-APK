@@ -3,6 +3,7 @@ import 'package:workmanager/workmanager.dart';
 import '../services/upload_queue.dart';
 import '../services/r2_service.dart';
 import '../services/ffmpeg_service.dart';
+import '../models/upload_task.dart';
 
 const String uploadTaskName = "r2_upload_scan";
 
