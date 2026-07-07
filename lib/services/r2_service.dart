@@ -33,7 +33,6 @@ class R2Service {
         AWSHeaders.host: Uri.parse(r2Endpoint).host,
       },
       body: bytes,
-      contentLength: bytes.length,
     );
 
     // presign URL and then do a simple HTTP PUT
