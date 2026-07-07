@@ -18,7 +18,8 @@ class R2Service {
   /// Uploads [file] to R2 at the given [objectKey] (e.g. "camera01/2026/.../video.mp4").
   /// Returns true on success.
   Future<bool> uploadFile(File file, String objectKey, {String contentType = 'video/mp4'}) async {
-    final uri = Uri.parse('${r2Endpoint.replaceAll(RegExp(r"\/")+ r"\$", '')}/${r2BucketName}/$objectKey');
+    // Build the object URL (use path style)
+    final uri = Uri.parse('${r2Endpoint}/${r2BucketName}/$objectKey');
 
     final bytes = await file.readAsBytes();
 
@@ -27,8 +28,10 @@ class R2Service {
       uri: uri,
       headers: {
         AWSHeaders.contentType: contentType,
+        AWSHeaders.host: Uri.parse(r2Endpoint).host,
       },
       body: bytes,
+      contentLength: bytes.length,
     );
 
     // presign URL and then do a simple HTTP PUT

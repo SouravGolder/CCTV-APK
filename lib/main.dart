@@ -1,7 +1,29 @@
 import 'package:flutter/material.dart';
 import 'screens/login.dart';
 
-void main() {
+import 'package:workmanager/workmanager.dart';
+import 'background/callback_dispatcher.dart';
+import 'services/ffmpeg_service.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize FFmpegService prefs
+  await FFmpegService.init();
+
+  // Initialize Workmanager background dispatcher
+  Workmanager().initialize(
+    callbackDispatcher,
+    isInDebugMode: false,
+  );
+
+  // Register periodic scan task (runs approximately every 15 minutes)
+  Workmanager().registerPeriodicTask(
+    "r2-upload-periodic",
+    uploadTaskName,
+    frequency: const Duration(minutes: 15),
+  );
+
   runApp(MaterialApp(home: LoginScreen()));
 }
 
