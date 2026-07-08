@@ -8,7 +8,9 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.net.wifi.WifiManager
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -17,6 +19,8 @@ import java.text.SimpleDateFormat
 import java.util.*
 import com.arthenica.ffmpegkit.FFmpegKit
 import com.arthenica.ffmpegkit.ReturnCode
+import android.os.FileObserver
+import io.flutter.plugin.common.MethodChannel
 
 /**
  * Foreground Service for continuous CCTV recording
@@ -38,6 +42,8 @@ class RecordingService : Service() {
     private var recordingThread: Thread? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
+    private var fileObserver: FileObserver? = null
+    private val CHANNEL = "com.example.cctv_app/recorder"
 
     override fun onCreate() {
         super.onCreate()
@@ -178,6 +184,23 @@ class RecordingService : Service() {
                         folder.mkdirs()
                     }
 
+                    // Start observing folder for completed files so Flutter can upload them
+                    try {
+                      fileObserver?.stopWatching()
+                      fileObserver = object : FileObserver(folderPath, CLOSE_WRITE) {
+                          override fun onEvent(event: Int, path: String?) {
+                              if (path == null || !path.endsWith(".mp4")) return
+                              val full = "$folderPath/$path"
+                              Log.d(TAG, "Recording segment complete (CLOSE_WRITE): $full")
+                              notifyFlutterNewFile(full)
+                          }
+                      }
+                      fileObserver?.startWatching()
+                        Log.d(TAG, "✓ FileObserver started on: $folderPath")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "✗ Failed to start FileObserver: ${e.message}")
+                    }
+
                     val outputPathPattern = "$folderPath/recording_%Y%m%d_%H%M%S.mp4"
 
                     Log.d(TAG, "Starting RTSP segment recording:")
@@ -223,7 +246,7 @@ class RecordingService : Service() {
                                 Log.w(TAG, "FFmpeg output: $output")
                             }
                         }
-                        
+                         
                         // Calculate duration of the session to reset retry count if it was a stable connection
                         val sessionDurationMs = session.duration ?: 0
                         if (sessionDurationMs > 10000) {
@@ -239,6 +262,14 @@ class RecordingService : Service() {
                 }
             }
 
+            // Stop watching when recording ends
+            try {
+                fileObserver?.stopWatching()
+                fileObserver = null
+                Log.d(TAG, "✓ FileObserver stopped")
+            } catch (e: Exception) {
+                Log.w(TAG, "✗ Error stopping FileObserver: ${e.message}")
+            }
             if (isRecording && retryCount >= MAX_RETRIES) {
                 Log.e(TAG, "✗ Max retries ($MAX_RETRIES) reached. Recording stopped.")
                 notificationManager?.notify(
@@ -252,6 +283,43 @@ class RecordingService : Service() {
         recordingThread?.start()
 
         Log.d(TAG, "✓ Recording service started in foreground")
+    }
+
+    private fun notifyFlutterNewFile(filePath: String) {
+        try {
+            val messenger = MainActivity.flutterMessenger
+            if (messenger != null) {
+                // MethodChannel.invokeMethod MUST run on the main (UI) thread.
+                // This method is called from the recording background thread.
+                Handler(Looper.getMainLooper()).post {
+                    try {
+                        val channel = MethodChannel(messenger, CHANNEL)
+                        val args: HashMap<String, String> = HashMap()
+                        args["path"] = filePath
+                        channel.invokeMethod("onNewRecording", args)
+                        Log.d(TAG, "✓ Notified Flutter of new file: $filePath")
+                    } catch (ex: Exception) {
+                        Log.e(TAG, "✗ Failed to invoke Flutter method: ${ex.message}", ex)
+                    }
+                }
+            } else {
+                Log.w(TAG, "Flutter messenger not available; unable to notify Dart about new file: $filePath")
+                // Fallback: persist pending upload so Dart/Workmanager can pick it up later
+                try {
+                    val f = File(filePath)
+                    val parent = f.parentFile
+                    if (parent != null) {
+                        val pending = File(parent, ".pending_uploads.txt")
+                        pending.appendText(filePath + "\n")
+                        Log.d(TAG, "✓ Appended pending upload: ${pending.absolutePath}")
+                    }
+                } catch (ex: Exception) {
+                    Log.e(TAG, "✗ Failed to persist pending upload: ${ex.message}", ex)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "✗ Exception notifying Flutter: ${e.message}", e)
+        }
     }
 
     private fun stopRecording() {

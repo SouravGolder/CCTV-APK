@@ -4,6 +4,7 @@ import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../background/upload_worker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 
@@ -32,6 +33,35 @@ class FFmpegService {
     final custom = (_customFolderPath ?? '').trim();
     if (custom.isNotEmpty) {
       PUBLIC_CCTV_FOLDER = custom;
+    }
+
+    // Listen for native notifications about newly created recording files
+    try {
+      platform.setMethodCallHandler((call) async {
+        if (call.method == 'onNewRecording') {
+          try {
+            final args = call.arguments;
+            String? path;
+            if (args is Map) {
+              path = args['path'] as String?;
+            } else if (args is String) {
+              path = args;
+            }
+            if (path != null && path.isNotEmpty) {
+              print('✓ Native reported new recording: $path');
+              // Compute object key from file name and enqueue upload
+              final name = path.split(Platform.pathSeparator).last;
+              // Import UploadWorker lazily to avoid cycles
+              await UploadWorker.processFile(path, name);
+            }
+          } catch (e) {
+            print('✗ Error handling onNewRecording: $e');
+          }
+        }
+      });
+      print('✓ Registered native callback handler for new recordings');
+    } catch (e) {
+      print('✗ Failed to set method call handler: $e');
     }
   }
 

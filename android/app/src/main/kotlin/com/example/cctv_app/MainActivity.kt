@@ -35,12 +35,16 @@ import com.arthenica.ffmpegkit.ReturnCode
  * 5. Flutter calls "stopRecording" to cancel recording
  */
 
+import io.flutter.plugin.common.BinaryMessenger
+
 class MainActivity : FlutterActivity() {
     companion object {
         private const val TAG = "RTSPRecorder"
         private const val CHANNEL = "com.example.cctv_app/recorder"
         private const val MAX_RETRIES = 25
         private const val RETRY_DELAY_MS = 300000L  // 5 minutes between retries
+        // Expose BinaryMessenger so background service can call Dart when new file created
+        var flutterMessenger: BinaryMessenger? = null
     }
 
     private var isRecording = false
@@ -50,6 +54,9 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        // Expose messenger for RecordingService
+        flutterMessenger = flutterEngine.dartExecutor.binaryMessenger
 
         // Configure MobileFFmpeg logging
         setupFFmpegLogging()

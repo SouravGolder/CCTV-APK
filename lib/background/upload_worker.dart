@@ -1,7 +1,6 @@
 import 'dart:io';
 import '../services/upload_queue.dart';
 import '../models/upload_task.dart';
-import '../services/r2_service.dart';
 
 /// Background upload worker helpers used by UI and background callbacks.
 class UploadWorker {
@@ -16,7 +15,8 @@ class UploadWorker {
     for (final entry in list) {
       if (entry is File) {
         final name = entry.path.split(Platform.pathSeparator).last;
-        final key = prefix == null ? name : '\$prefix/\$name';
+        if (!name.endsWith('.mp4')) continue;
+        final key = prefix == null ? name : '$prefix/$name';
         UploadQueue.instance.add(UploadTask(localPath: entry.path, objectKey: key));
       }
     }

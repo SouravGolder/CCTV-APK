@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:open_file/open_file.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../services/ffmpeg_service.dart';
+import '../services/upload_queue.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<FileSystemEntity> recordings = [];
   List<FileSystemEntity> filteredRecordings = [];
   bool isFilterActive = false;
+  StreamSubscription? _queueSubscription;
 
   @override
   void initState() {
@@ -30,7 +33,14 @@ class _HomeScreenState extends State<HomeScreen> {
     FFmpegService.init().then((_) {
       if (mounted) setState(() {});
     });
-    refreshRecordings();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      refreshRecordings();
+    });
+    _queueSubscription = UploadQueue.instance.onQueueChanged.listen((_) {
+      if (mounted) {
+        refreshRecordings();
+      }
+    });
   }
 
   void start() async {
@@ -289,6 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _queueSubscription?.cancel();
     rtsp.dispose();
     segment.dispose();
     filterDate.dispose();
