@@ -45,6 +45,7 @@ class MainActivity : FlutterActivity() {
         private const val RETRY_DELAY_MS = 300000L  // 5 minutes between retries
         // Expose BinaryMessenger so background service can call Dart when new file created
         var flutterMessenger: BinaryMessenger? = null
+        var isAppInForeground = false
     }
 
     private var isRecording = false
@@ -67,7 +68,16 @@ class MainActivity : FlutterActivity() {
                     val rtspUrl = call.argument<String>("rtspUrl")
                     val duration = call.argument<Int>("duration")
                     val folderPath = call.argument<String>("folderPath")
-                    startRecording(rtspUrl, duration, folderPath, result)
+                    val r2AccountId = call.argument<String>("r2AccountId")
+                    val r2BucketName = call.argument<String>("r2BucketName")
+                    val r2AccessKey = call.argument<String>("r2AccessKey")
+                    val r2SecretKey = call.argument<String>("r2SecretKey")
+                    val r2Endpoint = call.argument<String>("r2Endpoint")
+                    startRecording(
+                        rtspUrl, duration, folderPath,
+                        r2AccountId, r2BucketName, r2AccessKey, r2SecretKey, r2Endpoint,
+                        result
+                    )
                 }
                 "stopRecording" -> {
                     stopRecording(result)
@@ -97,6 +107,11 @@ class MainActivity : FlutterActivity() {
         rtspUrl: String?,
         duration: Int?,
         folderPath: String?,
+        r2AccountId: String?,
+        r2BucketName: String?,
+        r2AccessKey: String?,
+        r2SecretKey: String?,
+        r2Endpoint: String?,
         result: MethodChannel.Result
     ) {
         if (rtspUrl.isNullOrEmpty()) {
@@ -127,6 +142,11 @@ class MainActivity : FlutterActivity() {
                 putExtra("rtspUrl", rtspUrl)
                 putExtra("duration", duration)
                 putExtra("folderPath", folderPath)
+                putExtra("r2AccountId", r2AccountId)
+                putExtra("r2BucketName", r2BucketName)
+                putExtra("r2AccessKey", r2AccessKey)
+                putExtra("r2SecretKey", r2SecretKey)
+                putExtra("r2Endpoint", r2Endpoint)
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -173,5 +193,24 @@ class MainActivity : FlutterActivity() {
             isRecording = false
             result.error("STOP_ERROR", "Failed to stop recording: ${e.message}", null)
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        isAppInForeground = true
+        Log.d(TAG, "✓ MainActivity onStart - App is in foreground")
+    }
+
+    override fun onStop() {
+        super.onStop()
+        isAppInForeground = false
+        Log.d(TAG, "✓ MainActivity onStop - App is in background")
+    }
+
+    override fun onDestroy() {
+        isAppInForeground = false
+        flutterMessenger = null
+        super.onDestroy()
+        Log.d(TAG, "✓ MainActivity onDestroy")
     }
 }

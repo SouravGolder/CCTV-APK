@@ -1,22 +1,26 @@
 import 'dart:io';
+import 'dart:async';
 
 import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../background/upload_worker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'r2_config.dart';
 
 /// FFmpeg Service - Platform Channel bridge to native Kotlin + MobileFFmpeg
 ///
 /// Architecture:
-/// Flutter UI → FFmpegService → Platform Channel → Kotlin → MobileFFmpeg → Video File
+/// Flutter UI → FFmpegService → Platform Channel → Kotlin → RecordingService → FFmpegKit Library
 ///
 /// The native side uses MobileFFmpeg library (AAR) for stable FFmpeg execution.
 /// No Flutter FFmpeg plugins needed — all processing happens natively in Kotlin.
 class FFmpegService {
   static const platform = MethodChannel('com.example.cctv_app/recorder');
+  static final _eventController = StreamController<String>.broadcast();
+  static Stream<String> get onEvent => _eventController.stream;
+
   static File? currentFile;
   static bool isRecording = false;
   static DateTime? recordingStartTime;
@@ -35,31 +39,15 @@ class FFmpegService {
       PUBLIC_CCTV_FOLDER = custom;
     }
 
-    // Listen for native notifications about newly created recording files
+    // Listen for native notifications about newly created recording files and completed uploads
     try {
       platform.setMethodCallHandler((call) async {
-        if (call.method == 'onNewRecording') {
-          try {
-            final args = call.arguments;
-            String? path;
-            if (args is Map) {
-              path = args['path'] as String?;
-            } else if (args is String) {
-              path = args;
-            }
-            if (path != null && path.isNotEmpty) {
-              print('✓ Native reported new recording: $path');
-              // Compute object key from file name and enqueue upload
-              final name = path.split(Platform.pathSeparator).last;
-              // Import UploadWorker lazily to avoid cycles
-              await UploadWorker.processFile(path, name);
-            }
-          } catch (e) {
-            print('✗ Error handling onNewRecording: $e');
-          }
+        if (call.method == 'onNewRecording' || call.method == 'onUploadComplete') {
+          print('✓ Native reported event: ${call.method}');
+          _eventController.add(call.method);
         }
       });
-      print('✓ Registered native callback handler for new recordings');
+      print('✓ Registered native callback handler for recording and upload events');
     } catch (e) {
       print('✗ Failed to set method call handler: $e');
     }
@@ -121,6 +109,17 @@ class FFmpegService {
       throw Exception(
         'Notification permission is required to keep background recording active.',
       );
+    }
+  }
+
+  static Future<void> ensureBatteryOptimizationExemption() async {
+    if (!Platform.isAndroid) return;
+
+    final status = await Permission.ignoreBatteryOptimizations.status;
+    if (status.isGranted) return;
+    final req = await Permission.ignoreBatteryOptimizations.request();
+    if (!req.isGranted) {
+      print('⚠ Battery optimization exemption not granted. The app might be restricted in the background.');
     }
   }
 
@@ -232,6 +231,7 @@ class FFmpegService {
 
       await ensureNotificationPermission();
       await ensureStoragePermission();
+      await ensureBatteryOptimizationExemption();
       final dir = await getCCTVFolder();
       currentRtspUrl = rtsp;
       segmentTime = time;
@@ -248,6 +248,11 @@ class FFmpegService {
         'rtspUrl': rtsp,
         'duration': time,
         'folderPath': dir.path,
+        'r2AccountId': r2AccountId,
+        'r2BucketName': r2BucketName,
+        'r2AccessKey': r2AccessKey,
+        'r2SecretKey': r2SecretKey,
+        'r2Endpoint': r2Endpoint,
       });
 
       print('✓ Native recording started: $result');
