@@ -43,15 +43,16 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
-# Flutter
-build/
-.dart_tool/
-.packages
-.pub-cache/
+# Built packages. The Android 7 release is copied to the project root.
+*.apk
+*.aab
+*.apks
+*.apk.sha1
 
-# Android
+# Android Gradle output. Flutter also writes /build.
+android/build/
 android/.gradle/
-android/app/build/
+*.hprof
 
 # Node (if backend inside)
 node_modules/
@@ -59,6 +60,3 @@ node_modules/
 # Python (if any)
 venv/
 ai_env/
-
-# OS
-.DS_Store
