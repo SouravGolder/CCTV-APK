@@ -28,7 +28,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    segment.text = '60';
+    rtsp.text =
+        'rtsp://admin:Admin2026@192.168.0.64:554/Streaming/Channels/102';
+    segment.text = '600';
     FFmpegService.init().then((_) {
       if (mounted) setState(() {});
     });

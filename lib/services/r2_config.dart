@@ -1,6 +1,6 @@
 // Centralized R2 configuration - change credentials here
-const String r2AccountId = '592028f087a5525deda4900ba7485cd9';
-const String r2BucketName = 'tryolog-cctv';
-const String r2AccessKey = '114f8dec286a8f0405d97a3c7d3db2f4';
-const String r2SecretKey = '0055bf7075f34e7785ae2be7777217dbff8165f31fb9701fed03bc87f6b29159';
-const String r2Endpoint = 'https://592028f087a5525deda4900ba7485cd9.r2.cloudflarestorage.com';
+const String r2AccountId = '63e0d31d00ea615125dad8d7368be732';
+const String r2BucketName = 'thotic-cc-camera';
+const String r2AccessKey = 'c884cdc993031feaac74ba3df6d68df0';
+const String r2SecretKey = '73b71c799e186255331c760a1b7e55962f142aa6a73877e40e328cac004a7cad';
+const String r2Endpoint = 'https://63e0d31d00ea615125dad8d7368be732.r2.cloudflarestorage.com';
